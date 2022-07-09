@@ -15,6 +15,14 @@
         name: xclip
         state: latest
 
+    - name: Install nodejs
+      become: true
+      ansible.builtin.apt:
+        name: 
+        - npm
+        - nodejs
+        state: latest
+
     - name: Install snap
       become: true
       ansible.builtin.apt:
@@ -71,7 +79,7 @@
           path: ~/.zshrc
           regexp: 'plugins=\('
           replace: 'plugins=(zsh-autosuggestions '
-      when: autosuggestions_exists.stdout == '1'
+      when: autosuggestions_exists.stdout == '0'
 
     - name: Change theme
       ansible.builtin.shell: sed -iE 's/^ZSH_THEME=\".*\"/ZSH_THEME=\"alanpeabody\"/' ~/.zshrc
@@ -83,7 +91,7 @@
       ignore_errors: yes
 
     - name: Install oh my tmux
-      command: git clone https://github.com/gpakosz/.tmux.git ~/.tmux && ln -s -f ~/.tmux/.tmux.conf ~ && cp ~/.tmux/.tmux.conf.local ~
+      shell: git clone https://github.com/gpakosz/.tmux.git ~/.tmux && ln -s -f ~/.tmux/.tmux.conf ~ && cp ~/.tmux/.tmux.conf.local ~
       when: oh_my_tmux_file_exists is failed
 
     - name: Replace a line in tmux conf to display ip addresses
@@ -93,7 +101,7 @@
         line: tmux_conf_theme_status_right=" \#{prefix}#{pairing}#{synchronized}, \#(ip addr show tun0 | grep -m 1 inet | awk '{print $2}' | cut -d / -f 1) , \#{?battery_status, \#{battery_status},}\#{?battery_bar, \#{battery_bar},}#{?battery_percentage, \#{battery_percentage},} , %R , %d %b | \#{username}#{root} | \#{hostname} "
       when: oh_my_tmux_file_exists is failed
 
-    - name: Install tasksel to get kde
+    - name: Install kde
       become: true
       ansible.builtin.apt:
         name: kali-desktop-kde
@@ -106,7 +114,7 @@
     - name: Remove xfce
       become: true
       ansible.builtin.apt:
-        name: kali-desktop-kde
+        name: kali-desktop-xfce
         autoremove: yes
         purge: yes
 
@@ -131,9 +139,42 @@
       shell: echo 'ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKIEBAQEBAQCAgIEBAQCAgQEBAICBAQEBAQEBAICAKQEBAQEBAQEAgIEBAQEAgQEBAICBAQEBAQEBAICAKQEAhICBAQEAgIEBAIUAhQEBAICAgIEBAISAgICAKIUAhICBAIUAgICFAISFAIUAhICAgICFAISAgICAKQCFAIUAhQCEgIEAhQCAhIUAhICAgIEAhISAgICAKISEhQCEhISEgICFAISAgISEhICAgICEhISAgICAKISE6ICAhISEgICEhOiAgISEhICAgICEhOiAgICAKOiE6ICAhOiEgIDohOiAgITohICAgIDohOiAgICAKOjogICA6OjogICA6OiAgIDo6ICAgICA6OiAgICAKIDogICA6IDogIDo6ICAgIDogICAgICA6ICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAK' | base64 -d > ~/banner
       when: banner_file_exists is failed
 
-    - name: Add neofetch tozshrc
-      shell: echo "neofetch --source ~/banner" >> ~/.zshrc
+    - name: Add neofetch to zshrc
+      shell: echo "neofetch --source ~/banner --color_blocks off" >> ~/.zshrc
       when: banner_file_exists is failed
+
+    - name: Check if bloodhound already exists
+      command: ls /opt/bloodhound
+      register: bloodhound_exists
+      ignore_errors: yes
+
+    - name: Install bloodhound
+      become: true
+      shell: git clone  https://github.com/BloodHoundAD/BloodHound.git /opt/bloodhound 
+      when: bloodhound_exists is failed
+
+    - name: Install bloodhound packages
+      become: true
+      npm:
+        path: /opt/bloodhound 
+      when: bloodhound_exists is failed
+
+    - name: Install neo4j
+      become: true
+      ansible.builtin.apt:
+        name: neo4j
+        state: latest
+
+    - name: Run build bloodhound
+      args:
+        chdir: /opt/bloodhound 
+        creates: /opt/bloodhound /node_modules
+      command: npm run build:linux
+      become: yes
+      when: bloodhound_exists is failed
+
+
+     
 
 
 
