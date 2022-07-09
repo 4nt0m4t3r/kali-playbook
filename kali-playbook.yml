@@ -1,6 +1,8 @@
 ---
 - name: Configure Kali Box
   hosts: localhost
+  vars:
+    user: kali
   connection: local
   tasks:
     - name: Update and upgrade apt packages
@@ -9,6 +11,11 @@
         upgrade: no
         update_cache: yes
         cache_valid_time: 86400
+
+    - name: Changing perm of /opt
+      become: true
+      file: dest=/opt mode=a+rwx
+
     - name: Install xclip
       become: true
       ansible.builtin.apt:
@@ -149,12 +156,10 @@
       ignore_errors: yes
 
     - name: Install bloodhound
-      become: true
       shell: git clone  https://github.com/BloodHoundAD/BloodHound.git /opt/bloodhound 
       when: bloodhound_exists is failed
 
     - name: Install bloodhound packages
-      become: true
       npm:
         path: /opt/bloodhound 
       when: bloodhound_exists is failed
@@ -170,17 +175,110 @@
         chdir: /opt/bloodhound 
         creates: /opt/bloodhound /node_modules
       command: npm run build:linux
-      become: yes
       when: bloodhound_exists is failed
 
+    - name: Install seclists
+      become: true
+      ansible.builtin.apt:
+        name: seclists
+        state: latest
 
-     
+    - name: Install docker
+      become: true
+      ansible.builtin.apt:
+        name: docker.io
+        state: latest
+
+    - name: enable service docker 
+      become: true
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Append docker group to user
+      user:
+        name: '{{ user }}'
+        groups: docker
+        append: yes
+      become: true
+
+    - name: Install gobuster
+      become: true
+      ansible.builtin.apt:
+        name: gobuster
+        state: latest
+
+    - name: Install golang
+      become: true
+      ansible.builtin.apt:
+        name: golang
+        state: latest
+    
+    - name: Test for line
+      shell: grep -c "export GOROOT=" ~/.zshrc
+      register: golang_path_flag
+      ignore_errors: yes
+
+    - name: Add golang path to zshrc
+      ignore_errors: yes
+      lineinfile:
+        dest: ~/.zshrc
+        line: "export GOROOT=/usr/lib/go && export GOPATH=$HOME/go && export PATH=$GOPATH/bin:$GOROOT/bin:$PATH"
+      when: golang_path_flag.stdout == "0"
+
+    - name: Install httpx
+      shell: go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+
+    - name: Install waybackurls
+      shell: go install github.com/tomnomnom/waybackurls@latest
 
 
+    - name: Check if reconftw exists
+      command: ls /opt/reconftw
+      register: reconftw_exists
+      ignore_errors: yes
+
+    - name: Clone reconftw
+      command: git clone https://github.com/six2dez/reconftw /opt/reconftw
+      when: reconftw_exists is failed
 
 
-        
+    - name: Install reconftw
+      when: reconftw_exists is failed
+      ansible.builtin.shell: ./install.sh
+      args:
+        chdir: /opt/reconftw/
+
+    - name: Install fff
+      shell: go get -u github.com/tomnomnom/fff 
+
+    - name: Install EyeWitness
+      become: true
+      ansible.builtin.apt:
+        name: eyewitness
+        state: latest
+
+    - name: Install sublist3r
+      become: true
+      ansible.builtin.apt:
+        name: sublist3r
+        state: latest
+
+    - name: Check if linkfinder exists
+      command: ls /opt/linkfinder
+      register: linkfinder_exists
+      ignore_errors: yes
+
+    - name: Clone linkfinder
+      command: git clone https://github.com/GerbenJavado/LinkFinder.git /opt/linkfinder
+      when: linkfinder_exists is failed
+
+    # - name: Install linkfinder
+    #   become: true
+    #   when: linkfinder_exists is failed
+    #   ansible.builtin.shell: python setup.py install
+    #   args:
+    #     chdir: /opt/linkfinder/
 
       
-
-
