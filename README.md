@@ -1,1 +1,4 @@
 # kali-playbook
+
+todo:
+- rlwrap
